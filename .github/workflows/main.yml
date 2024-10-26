@@ -35,10 +35,6 @@ jobs:
         echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
         docker push $IMAGE_NAME
 
-    - name: Copy .env file to DigitalOcean
-      run: |
-        scp -o StrictHostKeyChecking=no .env root@${{ env.DIGITALOCEAN_VM_IP }}:/root/.env
-
     - name: Deploy to DigitalOcean
       run: |
         ssh -o StrictHostKeyChecking=no root@${{ env.DIGITALOCEAN_VM_IP }} << EOF
