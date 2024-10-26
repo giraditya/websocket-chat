@@ -25,6 +25,9 @@ WORKDIR /app
 # Copy the binary from the builder stage
 COPY --from=builder /app/websocket-chat .
 
+# Copy the template files into the container
+COPY --from=builder /app/template ./template
+
 # Expose the port the app runs on
 EXPOSE 8080
 
