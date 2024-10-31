@@ -11,7 +11,7 @@ type MasterAgent struct{}
 
 type MasterAgentInterface interface {
 	NotifyUser(msg models.Message, wsConn models.WebsocketConnection) error
-	ForwardMessage(c context.Context, msg models.Message, bondedConn models.BondedConnection, from string) error
+	ForwardMessage(c context.Context, msg models.Message, bondedConn *models.BondedConnection, from string) error
 }
 
 func NewMasterAgent() MasterAgentInterface {
@@ -26,7 +26,7 @@ func (m *MasterAgent) NotifyUser(msg models.Message, wsConn models.WebsocketConn
 	return nil
 }
 
-func (m *MasterAgent) ForwardMessage(c context.Context, msg models.Message, bondedConn models.BondedConnection, from string) error {
+func (m *MasterAgent) ForwardMessage(c context.Context, msg models.Message, bondedConn *models.BondedConnection, from string) error {
 	if from == constants.USER_AGENT_WS {
 		err := bondedConn.ConnSupport.Conn.WriteJSON(msg)
 		if err != nil {

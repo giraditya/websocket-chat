@@ -86,7 +86,7 @@ func (h *Handler) ClientWs(c *gin.Context) {
 			}
 			h.SupporAgent.NotifyAllSupportAgent(msgToSupportAgent, h.GetSupportAgentConnections(c))
 		default:
-			if h.IsBondedConnectionExist(c, msg.Username) {
+			if h.IsBondedConnectionExistAndActive(c, msg.Username, models.WebsocketConnection{}, wsConnection) {
 				err := h.MasterAgent.ForwardMessage(c, msg, h.GetBondedConnection(c, msg.Username), constants.USER_AGENT_WS)
 				if err != nil {
 					log.WithContext(c).Errorf("Error forwarding message: %v", err)
@@ -98,6 +98,10 @@ func (h *Handler) ClientWs(c *gin.Context) {
 
 func (h *Handler) SupportAgentWs(c *gin.Context) {
 	username := c.Query("username")
+
+	// Remove connetion before if already registered
+	h.RemoveConnection(c, username)
+
 	conn, err := WebsocketUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.WithContext(c).Errorf("Error upgrading connection: %v", err)
@@ -125,15 +129,17 @@ func (h *Handler) SupportAgentWs(c *gin.Context) {
 		case "BONDED CONNECTION":
 			userConn := h.GetUserConnection(c, "John Doe")
 			if !helpers.IsStructEmpty(userConn) {
-				h.SaveBondedConnection(c, models.BondedConnection{
-					ConnUser:    &userConn,
-					ConnSupport: &wsConnection,
-					ID:          userConn.ID,
-				})
+				if !h.IsBondedConnectionExistAndActive(c, "John Doe", wsConnection, models.WebsocketConnection{}) {
+					h.SaveBondedConnection(c, models.BondedConnection{
+						ConnUser:    &userConn,
+						ConnSupport: &wsConnection,
+						ID:          userConn.ID,
+					})
+				}
 			}
 			log.WithContext(c).Info("CONNECTION BONDED")
 		default:
-			if h.IsBondedConnectionExist(c, "John Doe") {
+			if h.IsBondedConnectionExistAndActive(c, "John Doe", wsConnection, models.WebsocketConnection{}) {
 				err := h.MasterAgent.ForwardMessage(c, msg, h.GetBondedConnection(c, "John Doe"), constants.SUPPORT_AGENT_WS)
 				if err != nil {
 					log.WithContext(c).Errorf("Error forwarding message: %v", err)
@@ -188,7 +194,7 @@ func (h *Handler) SaveBondedConnection(c context.Context, bondedConn models.Bond
 	h.BondedConnections = append(h.BondedConnections, bondedConn)
 }
 
-func (h *Handler) GetBondedConnection(c context.Context, id string) models.BondedConnection {
+func (h *Handler) GetBondedConnection(c context.Context, id string) *models.BondedConnection {
 	var conn models.BondedConnection
 	for _, v := range h.BondedConnections {
 		if v.ID == id {
@@ -196,14 +202,40 @@ func (h *Handler) GetBondedConnection(c context.Context, id string) models.Bonde
 			break
 		}
 	}
-	return conn
+
+	return &conn
 }
 
-func (h *Handler) IsBondedConnectionExist(c context.Context, identifier string) bool {
-	for _, v := range h.BondedConnections {
+func (h *Handler) IsBondedConnectionExistAndActive(c context.Context, identifier string, connSupportActive models.WebsocketConnection, connUserActive models.WebsocketConnection) bool {
+	for i := range h.BondedConnections {
+		v := &h.BondedConnections[i]
 		if v.ID == identifier {
+			if !helpers.IsStructEmpty(connSupportActive) {
+				v.ConnSupport = &connSupportActive
+			}
+			if !helpers.IsStructEmpty(connUserActive) {
+				v.ConnUser = &connUserActive
+			}
 			return true
 		}
 	}
 	return false
+}
+
+func (h *Handler) RemoveConnection(c context.Context, identifier string) {
+	for i, conn := range h.Connections {
+		if conn.ID == identifier {
+			h.Connections = append(h.Connections[:i], h.Connections[i+1:]...)
+			break
+		}
+	}
+}
+
+func (h *Handler) RemoveBondedConnection(c context.Context, id string) {
+	for i, conn := range h.BondedConnections {
+		if conn.ID == id {
+			h.BondedConnections = append(h.BondedConnections[:i], h.BondedConnections[i+1:]...)
+			break
+		}
+	}
 }
