@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Room Client</title>
+    <style>
+        .chat-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+        }
+
+        #chat {
+            height: 300px;
+            overflow-y: scroll;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h2>Chat Room</h2>
+        <div id="chat"></div>
+        <input id="messageInput" type="text" placeholder="Type a message..." />
+        <button id="sendButton">Send</button>
+    </div>
+
+    <script>
+        let messages = [];
+        let username = "John Doe";
+        let newMessage = "";
+        let ws;
+
+        function initializeWebSocket() {
+            ws = new WebSocket(`ws://localhost:8080/ws/client?username=${username}`);
+
+            ws.onopen = function () {
+                console.log("WebSocket connection established!!!");
+            };
+
+            ws.onmessage = function (event) {
+                const receivedMessage = JSON.parse(event.data);
+                console.log("Message from server: ", receivedMessage);
+                messages.push({
+                    username: receivedMessage.username,
+                    message: receivedMessage.content,
+                    timestamp: receivedMessage.timestamp,
+                    messageType: receivedMessage.message_type,
+                });
+                renderMessages();
+                scrollToBottom();
+            };
+
+            ws.onerror = function (error) {
+                console.error("WebSocket error: ", error);
+            };
+
+            ws.onclose = function () {
+                console.log("WebSocket connection closed");
+            };
+        }
+
+        function createMessage(content) {
+            return {
+                username,
+                content,
+                timestamp: new Date().toISOString(),
+                message_type: "text",
+            };
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById("messageInput");
+            newMessage = messageInput.value;
+
+            if (newMessage.trim()) {
+                const messageToSend = createMessage(newMessage);
+                ws.send(JSON.stringify(messageToSend));
+                messageInput.value = ""; // Clear input field
+            }
+        }
+
+        function renderMessages() {
+            const chatElement = document.getElementById("chat");
+            chatElement.innerHTML = ""; // Clear previous messages
+
+            messages.forEach(msg => {
+                const messageElement = document.createElement("p");
+                messageElement.innerHTML = `<strong>${msg.username}:</strong> ${msg.message}`;
+                chatElement.appendChild(messageElement);
+            });
+        }
+
+        function scrollToBottom() {
+            const chatElement = document.getElementById("chat");
+            chatElement.scrollTop = chatElement.scrollHeight;
+        }
+
+        // Event listeners
+        document.getElementById("sendButton").addEventListener("click", sendMessage);
+        document.getElementById("messageInput").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                sendMessage();
+            }
+        });
+
+        // Initialize WebSocket connection on page load
+        window.onload = initializeWebSocket;
+    </script>
+</body>
+</html>

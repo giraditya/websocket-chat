@@ -1,77 +1,38 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
+	"websocket-chat/agent"
+	"websocket-chat/handler"
 
-	"github.com/gorilla/websocket"
+	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
-var clients = make(map[*websocket.Conn]bool)
-var broadcast = make(chan Message)
-
-type Message struct {
-	Username string `json:"username"`
-	Message  string `json:"message"`
-}
-
 func main() {
-	http.HandleFunc("/", homePage)
-	http.HandleFunc("/ws", handleConnections)
+	// Initialize Logrus settings
+	log.SetFormatter(&log.JSONFormatter{
+		PrettyPrint: true,
+	})
+	log.SetLevel(log.DebugLevel)
 
-	go handleMessages()
+	// Initialize Agent
+	masterAgent := agent.NewMasterAgent()
+	supportAgent := agent.NewSupportAgent()
 
-	fmt.Println("Server started on :8080")
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		panic("Error starting server: " + err.Error())
-	}
-}
+	// Initialize Handler
+	h := handler.NewHandler(masterAgent, supportAgent)
 
-func homePage(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to the Chat Room!")
-}
+	// Initialize Gin router
+	router := gin.Default()
+	router.Use(gin.Recovery())
 
-func handleConnections(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer conn.Close()
+	router.GET("/ws/client", h.ClientWs)
+	router.GET("/ws/support", h.SupportAgentWs)
 
-	clients[conn] = true
-
-	for {
-		var msg Message
-		err := conn.ReadJSON(&msg)
-		if err != nil {
-			fmt.Println(err)
-			delete(clients, conn)
-			return
-		}
-
-		broadcast <- msg
-	}
-}
-
-func handleMessages() {
-	for {
-		msg := <-broadcast
-
-		for client := range clients {
-			err := client.WriteJSON(msg)
-			if err != nil {
-				fmt.Println(err)
-				client.Close()
-				delete(clients, client)
-			}
-		}
+	// Start server
+	port := ":8080"
+	log.Infof("Server started on %s", port)
+	if err := router.Run(port); err != nil {
+		log.Fatalf("Error starting server: %v", err)
 	}
 }
