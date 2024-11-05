@@ -3,7 +3,6 @@ package models
 import "github.com/gorilla/websocket"
 
 type WebsocketConnection struct {
-	ID   string
 	Type string
 	Conn *websocket.Conn
 }
@@ -11,5 +10,5 @@ type WebsocketConnection struct {
 type BondedConnection struct {
 	ConnUser    *WebsocketConnection
 	ConnSupport *WebsocketConnection
-	ID          string
+	ChatID      string
 }

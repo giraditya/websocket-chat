@@ -35,12 +35,12 @@
 
     <script>
         let messages = [];
-        let username = "John Doe";
+        let sender = "John Doe";
         let newMessage = "";
         let ws;
 
         function initializeWebSocket() {
-            ws = new WebSocket(`ws://localhost:8080/ws/client?username=${username}`);
+            ws = new WebSocket(`ws://localhost:8080/ws/client?sender=${sender}`);
 
             ws.onopen = function () {
                 console.log("WebSocket connection established!!!");
@@ -50,7 +50,7 @@
                 const receivedMessage = JSON.parse(event.data);
                 console.log("Message from server: ", receivedMessage);
                 messages.push({
-                    username: receivedMessage.username,
+                    sender: receivedMessage.sender,
                     message: receivedMessage.content,
                     timestamp: receivedMessage.timestamp,
                     messageType: receivedMessage.message_type,
@@ -70,7 +70,7 @@
 
         function createMessage(content) {
             return {
-                username,
+                sender,
                 content,
                 timestamp: new Date().toISOString(),
                 message_type: "text",
@@ -94,7 +94,7 @@
 
             messages.forEach(msg => {
                 const messageElement = document.createElement("p");
-                messageElement.innerHTML = `<strong>${msg.username}:</strong> ${msg.message}`;
+                messageElement.innerHTML = `<strong>${msg.sender}:</strong> ${msg.message}`;
                 chatElement.appendChild(messageElement);
             });
         }

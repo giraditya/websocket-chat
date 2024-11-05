@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,6 +26,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="chat-container">
         <h2>Chat Room</h2>
@@ -35,12 +37,13 @@
 
     <script>
         let messages = [];
-        let username = "John Legend";
+        let sender = "John Legend";
         let newMessage = "";
+        let userNeedSupport = localStorage.getItem("userNeedSupport") || ""; // Retrieve from localStorage
         let ws;
 
         function initializeWebSocket() {
-            ws = new WebSocket(`ws://localhost:8080/ws/support?username=${username}`);
+            ws = new WebSocket(`ws://localhost:8080/ws/support?sender=${sender}`);
 
             ws.onopen = function () {
                 console.log("WebSocket connection established!!!");
@@ -49,8 +52,19 @@
             ws.onmessage = function (event) {
                 const receivedMessage = JSON.parse(event.data);
                 console.log("Message from server: ", receivedMessage);
+
+                switch (receivedMessage.content) {
+                    case "Hi, i need your support, can you help me?":
+                        userNeedSupport = receivedMessage.sender;
+                        localStorage.setItem("userNeedSupport", userNeedSupport); // Store in localStorage
+                        break;
+                    default:
+                        break;
+                }
+
                 messages.push({
-                    username: receivedMessage.username,
+                    sender: receivedMessage.sender,
+                    recipient: userNeedSupport,
                     message: receivedMessage.content,
                     timestamp: receivedMessage.timestamp,
                     messageType: receivedMessage.message_type,
@@ -70,7 +84,26 @@
 
         function createMessage(content) {
             return {
-                username,
+                sender,
+                content,
+                timestamp: new Date().toISOString(),
+                message_type: "text",
+            };
+        }
+
+        function takeSupport(content, recipient) {
+            meesage.push({
+                sender: sender,
+                recipient: recipient,
+                message: content,
+                timestamp:  new Date().toISOString(),
+                messageType: "text",
+            });
+            renderMessages();
+            scrollToBottom();
+            return {
+                sender,
+                recipient,
                 content,
                 timestamp: new Date().toISOString(),
                 message_type: "text",
@@ -81,20 +114,29 @@
             const messageInput = document.getElementById("messageInput");
             newMessage = messageInput.value;
 
-            if (newMessage.trim()) {
-                const messageToSend = createMessage(newMessage);
-                ws.send(JSON.stringify(messageToSend));
-                messageInput.value = ""; // Clear input field
+            let messageToSend;
+
+            switch (newMessage.trim()) {
+                case "BONDED CONNECTION":
+                    messageToSend = takeSupport(newMessage, userNeedSupport);
+                    ws.send(JSON.stringify(messageToSend));
+                    messageInput.value = "";
+                    break;
+                default:
+                    messageToSend = takeSupport(newMessage, userNeedSupport);
+                    ws.send(JSON.stringify(messageToSend));
+                    messageInput.value = "";
+                    break;
             }
         }
 
         function renderMessages() {
             const chatElement = document.getElementById("chat");
-            chatElement.innerHTML = ""; // Clear previous messages
+            chatElement.innerHTML = "";
 
             messages.forEach(msg => {
                 const messageElement = document.createElement("p");
-                messageElement.innerHTML = `<strong>${msg.username}:</strong> ${msg.message}`;
+                messageElement.innerHTML = `<strong>${msg.sender}:</strong> ${msg.message}`;
                 chatElement.appendChild(messageElement);
             });
         }
@@ -115,5 +157,7 @@
         // Initialize WebSocket connection on page load
         window.onload = initializeWebSocket;
     </script>
+
 </body>
+
 </html>

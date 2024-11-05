@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"context"
-	"fmt"
 	"net/http"
 	"time"
 	"websocket-chat/agent"
@@ -16,10 +14,8 @@ import (
 )
 
 type Handler struct {
-	Connections       []models.WebsocketConnection
-	BondedConnections []models.BondedConnection
-	MasterAgent       agent.MasterAgentInterface
-	SupporAgent       agent.SupportAgentInterface
+	MasterAgent agent.MasterAgentInterface
+	SupporAgent agent.SupportAgentInterface
 }
 
 type HandlerInterface interface {
@@ -43,7 +39,9 @@ var WebsocketUpgrader = websocket.Upgrader{
 }
 
 func (h *Handler) ClientWs(c *gin.Context) {
-	username := c.Query("username")
+	identifier := c.Query("identifier")
+	client := c.Query("client")
+
 	conn, err := WebsocketUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.WithContext(c).Errorf("Error upgrading connection: %v", err)
@@ -53,19 +51,26 @@ func (h *Handler) ClientWs(c *gin.Context) {
 	defer conn.Close()
 
 	wsConnection := models.WebsocketConnection{
-		ID:   username,
 		Type: constants.USER_AGENT_WS,
 		Conn: conn,
 	}
-	h.SaveConnection(c, wsConnection)
+	h.MasterAgent.SaveConnection(c, identifier, wsConnection)
+
+	starterContent, err := helpers.ReadHTMLFile("starting-chat.html")
+	if err != nil {
+		log.WithContext(c).Errorf("Error reading HTML file: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading HTML file"})
+	}
 
 	msg := models.Message{
-		Username:    "WsMaster",
-		Content:     fmt.Sprintf("Hello %s welcome,  you are now connected to the chat", username),
+		Sender:      "WsMaster",
+		Recipient:   client,
+		Identifier:  identifier,
+		Content:     starterContent,
 		Timestamp:   time.Now(),
-		MessageType: "text",
+		MessageType: "html",
 	}
-	h.MasterAgent.NotifyUser(msg, h.GetUserConnection(c, username))
+	h.MasterAgent.NotifyUser(msg, h.MasterAgent.GetUserConnection(c, identifier))
 
 	for {
 		var msg models.Message
@@ -74,20 +79,22 @@ func (h *Handler) ClientWs(c *gin.Context) {
 			log.WithContext(c).Warnf("Error reading message: %v", err)
 			break
 		}
-		log.WithContext(c).Infof("Message from %s: %s", username, msg.Content)
+		log.WithContext(c).Infof("Message from user %v: %s", msg.Identifier, msg.Content)
 
 		switch msg.Content {
 		case "NEED SUPPORT":
 			msgToSupportAgent := models.Message{
-				Username:    msg.Username,
+				Sender:      msg.Sender,
+				Recipient:   "Support Agent",
+				Identifier:  msg.Identifier,
 				Content:     "Hi, i need your support, can you help me?",
 				Timestamp:   time.Now(),
 				MessageType: "text",
 			}
-			h.SupporAgent.NotifyAllSupportAgent(msgToSupportAgent, h.GetSupportAgentConnections(c))
+			h.MasterAgent.NotifyAllSupportAgent(msgToSupportAgent, h.MasterAgent.GetSupportAgentConnections(c))
 		default:
-			if h.IsBondedConnectionExistAndActive(c, msg.Username, models.WebsocketConnection{}, wsConnection) {
-				err := h.MasterAgent.ForwardMessage(c, msg, h.GetBondedConnection(c, msg.Username), constants.USER_AGENT_WS)
+			if h.MasterAgent.IsBondedConnectionExistAndActive(c, msg.Identifier, &models.WebsocketConnection{}, &wsConnection) {
+				err := h.MasterAgent.ForwardMessage(c, msg, h.MasterAgent.GetBondedConnection(c, msg.Identifier), constants.USER_AGENT_WS)
 				if err != nil {
 					log.WithContext(c).Errorf("Error forwarding message: %v", err)
 				}
@@ -97,10 +104,7 @@ func (h *Handler) ClientWs(c *gin.Context) {
 }
 
 func (h *Handler) SupportAgentWs(c *gin.Context) {
-	username := c.Query("username")
-
-	// Remove connetion before if already registered
-	h.RemoveConnection(c, username)
+	identifier := c.Query("identifier")
 
 	conn, err := WebsocketUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -111,11 +115,10 @@ func (h *Handler) SupportAgentWs(c *gin.Context) {
 	defer conn.Close()
 
 	wsConnection := models.WebsocketConnection{
-		ID:   username,
 		Type: constants.SUPPORT_AGENT_WS,
 		Conn: conn,
 	}
-	h.SaveConnection(c, wsConnection)
+	h.MasterAgent.SaveConnection(c, identifier, wsConnection)
 
 	for {
 		var msg models.Message
@@ -126,116 +129,25 @@ func (h *Handler) SupportAgentWs(c *gin.Context) {
 		}
 
 		switch msg.Content {
-		case "BONDED CONNECTION":
-			userConn := h.GetUserConnection(c, "John Doe")
+		case "TAKE":
+			userConn := h.MasterAgent.GetUserConnection(c, msg.Recipient)
 			if !helpers.IsStructEmpty(userConn) {
-				if !h.IsBondedConnectionExistAndActive(c, "John Doe", wsConnection, models.WebsocketConnection{}) {
-					h.SaveBondedConnection(c, models.BondedConnection{
+				if !h.MasterAgent.IsBondedConnectionExistAndActive(c, msg.Recipient, &wsConnection, &models.WebsocketConnection{}) {
+					h.MasterAgent.SaveBondedConnection(c, msg.Recipient, models.BondedConnection{
 						ConnUser:    &userConn,
 						ConnSupport: &wsConnection,
-						ID:          userConn.ID,
+						ChatID:      msg.Recipient,
 					})
 				}
 			}
-			log.WithContext(c).Info("CONNECTION BONDED")
 		default:
-			if h.IsBondedConnectionExistAndActive(c, "John Doe", wsConnection, models.WebsocketConnection{}) {
-				err := h.MasterAgent.ForwardMessage(c, msg, h.GetBondedConnection(c, "John Doe"), constants.SUPPORT_AGENT_WS)
+			if h.MasterAgent.IsBondedConnectionExistAndActive(c, msg.Recipient, &wsConnection, &models.WebsocketConnection{}) {
+				err := h.MasterAgent.ForwardMessage(c, msg, h.MasterAgent.GetBondedConnection(c, msg.Recipient), constants.SUPPORT_AGENT_WS)
 				if err != nil {
 					log.WithContext(c).Errorf("Error forwarding message: %v", err)
 				}
 			}
 		}
-		log.WithContext(c).Infof("Message from %s: %s", "John Doe", msg.Content)
-	}
-}
-
-func (h *Handler) SaveConnection(c context.Context, identifier models.WebsocketConnection) {
-	h.Connections = append(h.Connections, identifier)
-}
-
-func (h *Handler) GetConnections(c context.Context) []models.WebsocketConnection {
-	return h.Connections
-}
-
-func (h *Handler) GetSupportAgentConnections(c context.Context) []models.WebsocketConnection {
-	var supportConnections []models.WebsocketConnection
-	for _, conn := range h.Connections {
-		if conn.Type == constants.SUPPORT_AGENT_WS {
-			supportConnections = append(supportConnections, conn)
-		}
-	}
-	return supportConnections
-}
-
-func (h *Handler) GetUserConnections(c context.Context) []models.WebsocketConnection {
-	var userConnections []models.WebsocketConnection
-	for _, conn := range h.Connections {
-		if conn.Type == constants.USER_AGENT_WS {
-			userConnections = append(userConnections, conn)
-		}
-	}
-	return userConnections
-}
-
-func (h *Handler) GetUserConnection(c context.Context, id string) models.WebsocketConnection {
-	var userConnections models.WebsocketConnection
-	for _, conn := range h.Connections {
-		fmt.Println(conn)
-		if conn.Type == constants.USER_AGENT_WS && conn.ID == id {
-			userConnections = conn
-			break
-		}
-	}
-	return userConnections
-}
-
-func (h *Handler) SaveBondedConnection(c context.Context, bondedConn models.BondedConnection) {
-	h.BondedConnections = append(h.BondedConnections, bondedConn)
-}
-
-func (h *Handler) GetBondedConnection(c context.Context, id string) *models.BondedConnection {
-	var conn models.BondedConnection
-	for _, v := range h.BondedConnections {
-		if v.ID == id {
-			conn = v
-			break
-		}
-	}
-
-	return &conn
-}
-
-func (h *Handler) IsBondedConnectionExistAndActive(c context.Context, identifier string, connSupportActive models.WebsocketConnection, connUserActive models.WebsocketConnection) bool {
-	for i := range h.BondedConnections {
-		v := &h.BondedConnections[i]
-		if v.ID == identifier {
-			if !helpers.IsStructEmpty(connSupportActive) {
-				v.ConnSupport = &connSupportActive
-			}
-			if !helpers.IsStructEmpty(connUserActive) {
-				v.ConnUser = &connUserActive
-			}
-			return true
-		}
-	}
-	return false
-}
-
-func (h *Handler) RemoveConnection(c context.Context, identifier string) {
-	for i, conn := range h.Connections {
-		if conn.ID == identifier {
-			h.Connections = append(h.Connections[:i], h.Connections[i+1:]...)
-			break
-		}
-	}
-}
-
-func (h *Handler) RemoveBondedConnection(c context.Context, id string) {
-	for i, conn := range h.BondedConnections {
-		if conn.ID == id {
-			h.BondedConnections = append(h.BondedConnections[:i], h.BondedConnections[i+1:]...)
-			break
-		}
+		log.WithContext(c).Infof("Message from support %s: %s", msg.Sender, msg.Content)
 	}
 }
