@@ -129,7 +129,7 @@ func (h *Handler) SupportAgentWs(c *gin.Context) {
 		}
 
 		switch msg.Content {
-		case "TAKE":
+		case constants.SIGNAL_TAKE_SESSION:
 			userConn := h.MasterAgent.GetUserConnection(c, msg.Recipient)
 			if !helpers.IsStructEmpty(userConn) {
 				if !h.MasterAgent.IsBondedConnectionExistAndActive(c, msg.Recipient, &wsConnection, &models.WebsocketConnection{}) {
@@ -140,6 +140,12 @@ func (h *Handler) SupportAgentWs(c *gin.Context) {
 					})
 				}
 			}
+		case constants.SIGNAL_END_SESSION:
+			// DO SOMETHING HERE
+		case constants.SIGNAL_BANNED:
+			// DO SOMETHING HERE
+		case constants.SINGAL_MOVE_SESSION:
+			// DO SOMETHING HERE
 		default:
 			if h.MasterAgent.IsBondedConnectionExistAndActive(c, msg.Recipient, &wsConnection, &models.WebsocketConnection{}) {
 				err := h.MasterAgent.ForwardMessage(c, msg, h.MasterAgent.GetBondedConnection(c, msg.Recipient), constants.SUPPORT_AGENT_WS)
