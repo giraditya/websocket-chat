@@ -1,7 +1,9 @@
 ## WEBSOCKET-CHAT
-### A WebSocket Chat Application in Go
+### A WebSocket Server in Go
 
-- Article explaining code for `go` beginners line by line: https://medium.com/@parvjn616/building-a-websocket-chat-application-in-go-388fff758575
+- The main concept is Live Chat, where users can send messages support agent.
+- So this application support multiple agent
+- Many agent can take many client
 
 ### Compile and Run
 - go run main.go 
