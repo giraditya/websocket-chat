@@ -82,7 +82,7 @@ func (h *Handler) ClientWs(c *gin.Context) {
 		log.WithContext(c).Infof("Message from user %v: %s", msg.Identifier, msg.Content)
 
 		switch msg.Content {
-		case "NEED SUPPORT":
+		case constants.SIGNAL_NEED_SUPPORT:
 			msgToSupportAgent := models.Message{
 				Sender:      msg.Sender,
 				Recipient:   "Support Agent",
@@ -144,7 +144,7 @@ func (h *Handler) SupportAgentWs(c *gin.Context) {
 			// DO SOMETHING HERE
 		case constants.SIGNAL_BANNED:
 			// DO SOMETHING HERE
-		case constants.SINGAL_MOVE_SESSION:
+		case constants.SIGNAL_MOVE_SESSION:
 			// DO SOMETHING HERE
 		default:
 			if h.MasterAgent.IsBondedConnectionExistAndActive(c, msg.Recipient, &wsConnection, &models.WebsocketConnection{}) {
