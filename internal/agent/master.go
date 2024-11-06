@@ -3,10 +3,10 @@ package agent
 import (
 	"context"
 	"fmt"
-	"websocket-chat/constants"
-	"websocket-chat/helpers"
-	"websocket-chat/models"
-	"websocket-chat/repository"
+	"websocket-chat/internal/constants"
+	"websocket-chat/internal/helpers"
+	"websocket-chat/internal/models"
+	"websocket-chat/internal/repository"
 
 	log "github.com/sirupsen/logrus"
 )

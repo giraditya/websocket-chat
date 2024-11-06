@@ -3,9 +3,9 @@ package handler
 import (
 	"net/http"
 	"time"
-	"websocket-chat/constants"
-	"websocket-chat/helpers"
-	"websocket-chat/models"
+	"websocket-chat/internal/constants"
+	"websocket-chat/internal/helpers"
+	"websocket-chat/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"

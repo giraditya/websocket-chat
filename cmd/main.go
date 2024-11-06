@@ -1,10 +1,10 @@
 package main
 
 import (
-	"websocket-chat/agent"
-	"websocket-chat/database"
-	"websocket-chat/handler"
-	"websocket-chat/repository"
+	"websocket-chat/internal/agent"
+	"websocket-chat/internal/database"
+	"websocket-chat/internal/handler"
+	"websocket-chat/internal/repository"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"

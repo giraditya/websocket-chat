@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
-	"websocket-chat/models"
+	"websocket-chat/internal/models"
 
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"

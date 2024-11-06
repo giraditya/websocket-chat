@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"websocket-chat/models"
+	"websocket-chat/internal/models"
 
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/mongo"

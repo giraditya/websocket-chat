@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"websocket-chat/agent"
+	"websocket-chat/internal/agent"
 
 	"github.com/gin-gonic/gin"
 )

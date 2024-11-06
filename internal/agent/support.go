@@ -1,7 +1,7 @@
 package agent
 
 import (
-	"websocket-chat/repository"
+	"websocket-chat/internal/repository"
 
 	log "github.com/sirupsen/logrus"
 )
