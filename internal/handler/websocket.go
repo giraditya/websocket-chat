@@ -44,15 +44,26 @@ func (h *Handler) ClientWs(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading HTML file"})
 	}
 
-	msg := models.Message{
-		Sender:      "WsMaster",
-		Recipient:   client,
-		Identifier:  identifier,
-		Content:     starterContent,
-		Timestamp:   time.Now(),
-		MessageType: "html",
+	chatHistory, err := h.Repo.GetChatHistory(client, "")
+	if err != nil {
+		log.WithContext(c).Errorf("Error getting chat history: %v", err)
 	}
-	h.MasterAgent.NotifyUser(msg, h.MasterAgent.GetUserConnection(c, identifier))
+
+	if helpers.IsStructEmpty(chatHistory) {
+		msg := models.Message{
+			Sender:      "WsMaster",
+			Recipient:   client,
+			Identifier:  identifier,
+			Content:     starterContent,
+			Timestamp:   time.Now(),
+			MessageType: "html",
+		}
+		h.MasterAgent.NotifyUser(msg, h.MasterAgent.GetUserConnection(c, identifier))
+	} else {
+		if h.MasterAgent.IsBondedConnectionExistAndActive(c, client, &models.WebsocketConnection{}, &wsConnection) {
+			h.MasterAgent.SendMessageHistory(c, chatHistory, h.MasterAgent.GetBondedConnection(c, client), constants.USER_AGENT_WS)
+		}
+	}
 
 	for {
 		var msg models.Message

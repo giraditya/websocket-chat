@@ -22,6 +22,7 @@ type MasterAgentInterface interface {
 	NotifyUser(msg models.Message, wsConn models.WebsocketConnection) error
 	NotifyAllSupportAgent(c context.Context, msg models.Message, wsCons []models.WebsocketConnection) error
 	ForwardMessage(c context.Context, msg models.Message, bondedConn *models.BondedConnection, from string) error
+	SendMessageHistory(c context.Context, msg []models.Message, bondedConn *models.BondedConnection, from string) error
 	SaveConnection(c context.Context, identifier string, connection models.WebsocketConnection)
 	GetConnections(c context.Context) map[string]models.WebsocketConnection
 	GetSupportAgentConnections(c context.Context) []models.WebsocketConnection
@@ -77,6 +78,22 @@ func (m *MasterAgent) ForwardMessage(c context.Context, msg models.Message, bond
 	}
 
 	go m.Repo.InsertMessage(c, msg)
+
+	return nil
+}
+
+func (m *MasterAgent) SendMessageHistory(c context.Context, msg []models.Message, bondedConn *models.BondedConnection, from string) error {
+	if from == constants.USER_AGENT_WS {
+		err := bondedConn.ConnSupport.Conn.WriteJSON(msg)
+		if err != nil {
+			return fmt.Errorf("error notifying support: %v", err)
+		}
+	} else {
+		err := bondedConn.ConnUser.Conn.WriteJSON(msg)
+		if err != nil {
+			return fmt.Errorf("error notifying user: %v", err)
+		}
+	}
 
 	return nil
 }

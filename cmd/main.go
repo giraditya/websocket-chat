@@ -30,7 +30,7 @@ func main() {
 	supportAgent := agent.NewSupportAgent(logger, repository)
 
 	// Initialize Handler
-	h := handler.NewHandler(masterAgent, supportAgent)
+	h := handler.NewHandler(masterAgent, supportAgent, repository)
 
 	// Initialize Gin router
 	router := gin.Default()
