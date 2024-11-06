@@ -2,7 +2,9 @@ package main
 
 import (
 	"websocket-chat/agent"
+	"websocket-chat/database"
 	"websocket-chat/handler"
+	"websocket-chat/repository"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -10,14 +12,22 @@ import (
 
 func main() {
 	// Initialize Logrus settings
-	log.SetFormatter(&log.JSONFormatter{
+	logger := log.New()
+	logger.SetFormatter(&log.JSONFormatter{
 		PrettyPrint: true,
 	})
-	log.SetLevel(log.DebugLevel)
+	logger.SetLevel(log.DebugLevel)
+
+	// Initialize DB
+	database := database.NewMongoDB(logger)
+	database.ConnectToMongoDB()
+
+	// Initialize Repository
+	repository := repository.NewRepository(database.GetMongoClient(), logger)
 
 	// Initialize Agent
-	masterAgent := agent.NewMasterAgent()
-	supportAgent := agent.NewSupportAgent()
+	masterAgent := agent.NewMasterAgent(logger, repository)
+	supportAgent := agent.NewSupportAgent(logger, repository)
 
 	// Initialize Handler
 	h := handler.NewHandler(masterAgent, supportAgent)

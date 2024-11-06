@@ -1,9 +1,21 @@
 package agent
 
-type SupportAgent struct{}
+import (
+	"websocket-chat/repository"
+
+	log "github.com/sirupsen/logrus"
+)
+
+type SupportAgent struct {
+	Log  *log.Logger
+	Repo repository.RepositoryInterface
+}
 
 type SupportAgentInterface interface{}
 
-func NewSupportAgent() SupportAgentInterface {
-	return &SupportAgent{}
+func NewSupportAgent(log *log.Logger, repo repository.RepositoryInterface) SupportAgentInterface {
+	return &SupportAgent{
+		Log:  log,
+		Repo: repo,
+	}
 }

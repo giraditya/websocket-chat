@@ -6,16 +6,21 @@ import (
 	"websocket-chat/constants"
 	"websocket-chat/helpers"
 	"websocket-chat/models"
+	"websocket-chat/repository"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type MasterAgent struct {
 	Connections       map[string]models.WebsocketConnection
 	BondedConnections map[string]models.BondedConnection
+	Log               *log.Logger
+	Repo              repository.RepositoryInterface
 }
 
 type MasterAgentInterface interface {
 	NotifyUser(msg models.Message, wsConn models.WebsocketConnection) error
-	NotifyAllSupportAgent(msg models.Message, wsCons []models.WebsocketConnection) error
+	NotifyAllSupportAgent(c context.Context, msg models.Message, wsCons []models.WebsocketConnection) error
 	ForwardMessage(c context.Context, msg models.Message, bondedConn *models.BondedConnection, from string) error
 	SaveConnection(c context.Context, identifier string, connection models.WebsocketConnection)
 	GetConnections(c context.Context) map[string]models.WebsocketConnection
@@ -29,10 +34,12 @@ type MasterAgentInterface interface {
 	RemoveBondedConnection(c context.Context, identifier string)
 }
 
-func NewMasterAgent() MasterAgentInterface {
+func NewMasterAgent(log *log.Logger, repo repository.RepositoryInterface) MasterAgentInterface {
 	return &MasterAgent{
 		Connections:       make(map[string]models.WebsocketConnection),
 		BondedConnections: make(map[string]models.BondedConnection),
+		Log:               log,
+		Repo:              repo,
 	}
 }
 
@@ -44,13 +51,15 @@ func (m *MasterAgent) NotifyUser(msg models.Message, wsConn models.WebsocketConn
 	return nil
 }
 
-func (m *MasterAgent) NotifyAllSupportAgent(msg models.Message, wsCons []models.WebsocketConnection) error {
+func (m *MasterAgent) NotifyAllSupportAgent(c context.Context, msg models.Message, wsCons []models.WebsocketConnection) error {
 	for _, wsCon := range wsCons {
 		err := wsCon.Conn.WriteJSON(msg)
 		if err != nil {
 			return fmt.Errorf("error send message to support agent: %v", err)
 		}
 	}
+	go m.Repo.InsertLogClientNeedSupport(c, msg.Sender)
+
 	return nil
 }
 
@@ -66,6 +75,8 @@ func (m *MasterAgent) ForwardMessage(c context.Context, msg models.Message, bond
 			return fmt.Errorf("error notifying user: %v", err)
 		}
 	}
+
+	go m.Repo.InsertMessage(c, msg)
 
 	return nil
 }

@@ -3,7 +3,6 @@ package handler
 import (
 	"net/http"
 	"time"
-	"websocket-chat/agent"
 	"websocket-chat/constants"
 	"websocket-chat/helpers"
 	"websocket-chat/models"
@@ -12,23 +11,6 @@ import (
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
-
-type Handler struct {
-	MasterAgent agent.MasterAgentInterface
-	SupporAgent agent.SupportAgentInterface
-}
-
-type HandlerInterface interface {
-	ClientWs(c *gin.Context)
-	SupportAgentWs(c *gin.Context)
-}
-
-func NewHandler(masterAgent agent.MasterAgentInterface, supportAgent agent.SupportAgentInterface) HandlerInterface {
-	return &Handler{
-		MasterAgent: masterAgent,
-		SupporAgent: supportAgent,
-	}
-}
 
 var WebsocketUpgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -91,7 +73,7 @@ func (h *Handler) ClientWs(c *gin.Context) {
 				Timestamp:   time.Now(),
 				MessageType: "text",
 			}
-			h.MasterAgent.NotifyAllSupportAgent(msgToSupportAgent, h.MasterAgent.GetSupportAgentConnections(c))
+			h.MasterAgent.NotifyAllSupportAgent(c, msgToSupportAgent, h.MasterAgent.GetSupportAgentConnections(c))
 		default:
 			if h.MasterAgent.IsBondedConnectionExistAndActive(c, msg.Identifier, &models.WebsocketConnection{}, &wsConnection) {
 				err := h.MasterAgent.ForwardMessage(c, msg, h.MasterAgent.GetBondedConnection(c, msg.Identifier), constants.USER_AGENT_WS)
